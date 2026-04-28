@@ -1,4 +1,3 @@
-use sysinfo::Networks;
 use super::InfoModule;
 
 pub struct NetworkModule;
@@ -7,17 +6,15 @@ impl NetworkModule { pub fn new() -> Self { Self } }
 impl InfoModule for NetworkModule {
     fn key(&self) -> &'static str { "Network" }
     fn value(&self) -> anyhow::Result<String> {
-        // Try reading local IP from /proc/net/fib_trie (Linux)
-        // Fallback: just show the first non-loopback interface name
-        let networks = Networks::new_with_refreshed_list();
+        // Read interfaces from /proc/net/dev (always present on Linux)
+        let ifaces = read_ifaces();
         let mut parts: Vec<String> = Vec::new();
 
-        for (name, _data) in &networks {
-            if name == "lo" { continue; }
-            // Get the first IPv4 address via ip command fallback
-            let ip = get_ip_for_iface(name)
-                .unwrap_or_else(|| "?.?.?.?".to_string());
-            parts.push(format!("{name} ({ip})"));
+        for iface in &ifaces {
+            if iface == "lo" { continue; }
+            if let Some(ip) = get_ip_for_iface(iface) {
+                parts.push(format!("{iface} ({ip})"));
+            }
             if parts.len() >= 2 { break; }
         }
 
@@ -26,17 +23,22 @@ impl InfoModule for NetworkModule {
     }
 }
 
+/// List non-loopback interface names from /proc/net/dev.
+fn read_ifaces() -> Vec<String> {
+    let Ok(text) = std::fs::read_to_string("/proc/net/dev") else { return vec![] };
+    text.lines().skip(2) // skip header rows
+        .filter_map(|line| line.split(':').next().map(|s| s.trim().to_string()))
+        .collect()
+}
+
 fn get_ip_for_iface(iface: &str) -> Option<String> {
-    // Parse /proc/net/fib_trie is complex — use `ip` command for reliability
     let out = std::process::Command::new("ip")
         .args(["-4", "addr", "show", iface])
         .output().ok()?;
     let text = String::from_utf8(out.stdout).ok()?;
     for line in text.lines() {
-        let trimmed = line.trim();
-        if let Some(rest) = trimmed.strip_prefix("inet ") {
-            let ip = rest.split('/').next()?.trim().to_string();
-            return Some(ip);
+        if let Some(rest) = line.trim().strip_prefix("inet ") {
+            return Some(rest.split('/').next()?.trim().to_string());
         }
     }
     None

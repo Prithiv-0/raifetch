@@ -1,18 +1,16 @@
-use std::sync::Arc;
-use sysinfo::System;
 use super::InfoModule;
+use super::procfs;
 use crate::theme::Theme;
 
-pub struct SwapModule { sys: Arc<System>, theme: Theme }
-impl SwapModule {
-    pub fn new(sys: Arc<System>, theme: Theme) -> Self { Self { sys, theme } }
-}
+pub struct SwapModule { theme: Theme }
+impl SwapModule { pub fn new(theme: Theme) -> Self { Self { theme } } }
 
 impl InfoModule for SwapModule {
     fn key(&self) -> &'static str { "Swap" }
     fn value(&self) -> anyhow::Result<String> {
-        let total = self.sys.total_swap();
-        let used  = self.sys.used_swap();
+        let m     = procfs::read_meminfo()?;
+        let total = m.swap_total;
+        let used  = m.swap_used();
         if total == 0 { return Ok("None".to_string()); }
         let pct = (used as f64 / total as f64) * 100.0;
         fn mib(b: u64) -> f64 { b as f64 / 1_048_576.0 }

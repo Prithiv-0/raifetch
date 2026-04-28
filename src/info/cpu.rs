@@ -1,26 +1,20 @@
-use std::sync::Arc;
-use sysinfo::System;
 use super::InfoModule;
+use super::procfs;
 
-pub struct CpuModule { sys: Arc<System> }
-impl CpuModule { pub fn new(sys: Arc<System>) -> Self { Self { sys } } }
+pub struct CpuModule;
+impl CpuModule { pub fn new() -> Self { Self } }
 
 impl InfoModule for CpuModule {
     fn key(&self) -> &'static str { "CPU" }
     fn value(&self) -> anyhow::Result<String> {
-        let cpus  = self.sys.cpus();
-        let model = cpus.first()
-            .map(|c| c.brand().to_string())
-            .unwrap_or_else(|| "Unknown".to_string());
-        let cores = cpus.len();
+        let cpu = procfs::read_cpuinfo();
 
-        // Frequency: read from /sys for accuracy, fall back to sysinfo
+        // Frequency: /sys is more accurate than /proc/cpuinfo's "cpu MHz" field
         let freq_str = sys_cpu_freq()
-            .or_else(|| cpus.first().map(|c| c.frequency()).filter(|&f| f > 0))
             .map(|mhz| format!(" @ {:.2} GHz", mhz as f64 / 1000.0))
             .unwrap_or_default();
 
-        Ok(format!("{model} ({cores} cores){freq_str}"))
+        Ok(format!("{} ({} cores){}", cpu.model, cpu.logical_cores, freq_str))
     }
 }
 

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use sysinfo::System;
 use crate::config::ModulesConfig;
 use crate::theme::Theme;
 
@@ -13,6 +11,7 @@ pub mod memory;
 pub mod network;
 pub mod os;
 pub mod packages;
+pub mod procfs;
 pub mod resolution;
 pub mod shell;
 pub mod swap;
@@ -50,7 +49,6 @@ struct ShellCmdModule { key: String, command: String }
 
 impl InfoModule for ShellCmdModule {
     fn key(&self) -> &'static str {
-        // SAFETY: we leak the string to get 'static, only done once per module
         Box::leak(self.key.clone().into_boxed_str())
     }
     fn value(&self) -> anyhow::Result<String> {
@@ -64,33 +62,32 @@ impl InfoModule for ShellCmdModule {
 // ─── Builder ─────────────────────────────────────────────────────────────────
 
 pub fn build_modules(
-    sys: Arc<System>,
     cfg: &ModulesConfig,
     theme: &Theme,
-    de_value: &str,      // pre-detected DE so WM can be suppressed
+    de_value: &str,
     auto_hide_wm: bool,
 ) -> Vec<Box<dyn InfoModule>> {
-    let wm_val = wm::detect_wm();
+    let wm_val  = wm::detect_wm();
     let hide_wm = auto_hide_wm && !wm_val.is_empty() && wm_val == de_value;
 
     let all: Vec<(&'static str, bool, Box<dyn InfoModule>)> = vec![
-        ("os",         cfg.show_os,         Box::new(OsModule::new())),
-        ("host",       cfg.show_host,        Box::new(HostModule::new())),
-        ("kernel",     cfg.show_kernel,      Box::new(KernelModule::new())),
-        ("uptime",     cfg.show_uptime,      Box::new(UptimeModule::new(Arc::clone(&sys)))),
-        ("cpu",        cfg.show_cpu,         Box::new(CpuModule::new(Arc::clone(&sys)))),
-        ("memory",     cfg.show_memory,      Box::new(MemoryModule::new(Arc::clone(&sys), theme.clone()))),
-        ("swap",       cfg.show_swap,        Box::new(SwapModule::new(Arc::clone(&sys), theme.clone()))),
-        ("disk",       cfg.show_disk,        Box::new(DiskModule::new(cfg.show_all_disks, theme.clone()))),
-        ("battery",    cfg.show_battery,     Box::new(BatteryModule::new(theme.clone()))),
-        ("network",    cfg.show_network,     Box::new(NetworkModule::new())),
-        ("resolution", cfg.show_resolution,  Box::new(ResolutionModule::new())),
-        ("shell",      cfg.show_shell,       Box::new(ShellModule::new())),
-        ("terminal",   cfg.show_terminal,    Box::new(TerminalModule::new())),
-        ("de",         cfg.show_de,          Box::new(WmModule::de())),
-        ("wm",         cfg.show_wm && !hide_wm, Box::new(WmModule::wm())),
-        ("packages",   cfg.show_packages,    Box::new(PackagesModule::new())),
-        ("locale",     cfg.show_locale,      Box::new(LocaleModule::new())),
+        ("os",         cfg.show_os,               Box::new(OsModule::new())),
+        ("host",       cfg.show_host,              Box::new(HostModule::new())),
+        ("kernel",     cfg.show_kernel,            Box::new(KernelModule::new())),
+        ("uptime",     cfg.show_uptime,            Box::new(UptimeModule::new())),
+        ("cpu",        cfg.show_cpu,               Box::new(CpuModule::new())),
+        ("memory",     cfg.show_memory,            Box::new(MemoryModule::new(theme.clone()))),
+        ("swap",       cfg.show_swap,              Box::new(SwapModule::new(theme.clone()))),
+        ("disk",       cfg.show_disk,              Box::new(DiskModule::new(cfg.show_all_disks, theme.clone()))),
+        ("battery",    cfg.show_battery,           Box::new(BatteryModule::new(theme.clone()))),
+        ("network",    cfg.show_network,           Box::new(NetworkModule::new())),
+        ("resolution", cfg.show_resolution,        Box::new(ResolutionModule::new())),
+        ("shell",      cfg.show_shell,             Box::new(ShellModule::new())),
+        ("terminal",   cfg.show_terminal,          Box::new(TerminalModule::new())),
+        ("de",         cfg.show_de,               Box::new(WmModule::de())),
+        ("wm",         cfg.show_wm && !hide_wm,   Box::new(WmModule::wm())),
+        ("packages",   cfg.show_packages,          Box::new(PackagesModule::new())),
+        ("locale",     cfg.show_locale,            Box::new(LocaleModule::new())),
     ];
 
     let mut by_name: std::collections::HashMap<&str, Box<dyn InfoModule>> = all
@@ -107,7 +104,6 @@ pub fn build_modules(
     }
     result.extend(by_name.into_values());
 
-    // Append custom shell modules at end (in order defined)
     for cm in &cfg.custom {
         result.push(Box::new(ShellCmdModule {
             key: cm.key.clone(),

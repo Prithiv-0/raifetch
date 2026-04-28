@@ -6,12 +6,10 @@ mod info;
 mod render;
 mod theme;
 
-use std::sync::Arc;
 use std::io::{self, Write};
 
 use clap::Parser;
 use rayon::prelude::*;
-use sysinfo::System;
 
 use crate::config::Config;
 use crate::image::{auto_detect, KittyBackend, SixelBackend, BlockBackend, ImageBackend};
@@ -32,6 +30,9 @@ struct Cli {
     backend: Option<String>,
     #[arg(long, value_name = "WHEN", default_value = "auto")]
     color: String,
+    /// Use an alternate config file
+    #[arg(long, value_name = "PATH")]
+    config: Option<String>,
     #[arg(long)]
     config_path: bool,
     #[arg(long)]
@@ -40,9 +41,15 @@ struct Cli {
     generate_config: bool,
     #[arg(long)]
     install: bool,
-    /// Print only one module's value (useful for status bars)
+    /// Remove all cached image renders from /tmp
+    #[arg(long)]
+    clear_cache: bool,
+    /// Print only one module (for status bars)
     #[arg(long, value_name = "MODULE")]
     module: Option<String>,
+    /// With --module: print bare value only (no label/color/separator)
+    #[arg(long)]
+    raw: bool,
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -59,8 +66,12 @@ fn main() -> anyhow::Result<()> {
     if cli.config_path     { println!("{}", Config::path().display()); return Ok(()); }
     if cli.generate_config { println!("{}", Config::default_toml());   return Ok(()); }
     if cli.install         { return do_install(); }
+    if cli.clear_cache     { return do_clear_cache(); }
 
-    let cfg = Config::load()?;
+    let cfg = match &cli.config {
+        Some(p) => Config::load_from(std::path::Path::new(p))?,
+        None    => Config::load()?,
+    };
 
     if cli.list_modules {
         let all = ["os","host","kernel","uptime","cpu","memory","swap","disk",
@@ -82,17 +93,6 @@ fn main() -> anyhow::Result<()> {
         cfg.theme.label_color.clone()
     };
 
-    // ── sysinfo ───────────────────────────────────────────────────────────────
-    // Only load what we actually use from sysinfo:
-    //   - CPU info (model name, core count, frequency)
-    //   - Memory (used/total RAM and swap)
-    // Disk, network, packages, and resolution all read from /proc or subprocesses directly.
-    // new_all() would also scan every running process (~10ms extra) — we skip that.
-    let mut sys = System::new();
-    sys.refresh_cpu_all();
-    sys.refresh_memory();
-    let sys = Arc::new(sys);
-
     // ── Theme ────────────────────────────────────────────────────────────────
     let theme = Theme {
         label_color,
@@ -110,7 +110,7 @@ fn main() -> anyhow::Result<()> {
     let de_val = detect_de();
 
     // ── Build + collect modules ────────────────────────────────────────────────
-    let modules = build_modules(Arc::clone(&sys), &cfg.modules, &theme, &de_val, cfg.general.auto_hide_wm);
+    let modules = build_modules(&cfg.modules, &theme, &de_val, cfg.general.auto_hide_wm);
 
     // ── --module: single module output for status bars ────────────────────────
     if let Some(target) = &cli.module {
@@ -120,7 +120,11 @@ fn main() -> anyhow::Result<()> {
                 if let Ok(v) = m.value() {
                     let stdout = io::stdout();
                     let mut out = io::BufWriter::new(stdout.lock());
-                    writeln!(out, "{}", theme.format_line(m.key(), &v))?;
+                    if cli.raw {
+                        writeln!(out, "{v}")?;
+                    } else {
+                        writeln!(out, "{}", theme.format_line(m.key(), &v))?;
+                    }
                     out.flush()?;
                 }
                 return Ok(());
@@ -361,5 +365,17 @@ fn do_install() -> anyhow::Result<()> {
     std::fs::copy(&exe, &dest)?;
     println!("Installed to {}", dest.display());
     println!("Make sure ~/.local/bin is in your PATH.");
+    Ok(())
+}
+
+fn do_clear_cache() -> anyhow::Result<()> {
+    let mut count = 0usize;
+    for entry in std::fs::read_dir("/tmp")?.flatten() {
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with("raifetch_") {
+            if std::fs::remove_file(entry.path()).is_ok() { count += 1; }
+        }
+    }
+    println!("Cleared {count} cached image render(s) from /tmp.");
     Ok(())
 }

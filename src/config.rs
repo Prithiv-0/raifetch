@@ -109,12 +109,13 @@ pub struct ModulesConfig {
     #[serde(default = "default_true")]  pub show_packages:   bool,
     #[serde(default = "default_true")]  pub show_locale:     bool,
     #[serde(default = "default_true")]  pub show_colors:     bool,
+    #[serde(default = "default_false")] pub show_gpu:        bool,
 
     #[serde(default)] pub custom: Vec<CustomModule>,
 }
 fn default_order() -> Vec<String> {
     ["os","host","kernel","uptime","cpu","memory","swap","disk","battery","network",
-     "resolution","shell","terminal","de","wm","packages","locale","colors"]
+     "resolution","shell","terminal","de","wm","packages","locale","colors","gpu"]
         .iter().map(|s| s.to_string()).collect()
 }
 impl Default for ModulesConfig {
@@ -126,7 +127,7 @@ impl Default for ModulesConfig {
             show_all_disks: false, show_battery: true, show_network: true,
             show_resolution: true, show_shell: true, show_terminal: true,
             show_de: true, show_wm: true, show_packages: true,
-            show_locale: true, show_colors: true,
+            show_locale: true, show_colors: true, show_gpu: false,
             custom: vec![],
         }
     }
@@ -157,6 +158,11 @@ impl Config {
         if let Some(rest) = p.strip_prefix("~/") {
             dirs::home_dir().unwrap_or_else(|| PathBuf::from("/")).join(rest)
         } else { PathBuf::from(p) }
+    }
+    pub fn load_from(path: &std::path::Path) -> anyhow::Result<Self> {
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| anyhow::anyhow!("Cannot read config '{}': {e}", path.display()))?;
+        toml::from_str(&text).map_err(|e| anyhow::anyhow!("Config parse error: {e}"))
     }
     pub fn default_toml() -> &'static str { include_str!("../config/default.toml") }
 }
