@@ -1,0 +1,22 @@
+# Build output
+/target
+*.tmp
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Rust-specific
+**/*.rs.bk
+*.orig
+
+# raifetch runtime cache (lives in /tmp, but just in case)
+raifetch_pkg_*

@@ -1,0 +1,348 @@
+mod ascii;
+mod config;
+mod error;
+mod image;
+mod info;
+mod render;
+mod theme;
+
+use std::sync::Arc;
+use std::io::{self, Write};
+
+use clap::Parser;
+use rayon::prelude::*;
+use sysinfo::System;
+use ::image::DynamicImage;
+
+use crate::config::Config;
+use crate::image::{auto_detect, KittyBackend, SixelBackend, BlockBackend, ImageBackend};
+use crate::info::{build_modules, wm::detect_de};
+use crate::render::render_side_by_side;
+use crate::theme::{Theme, color_blocks, distro_auto_color};
+
+// ─── CLI ─────────────────────────────────────────────────────────────────────
+
+#[derive(Parser)]
+#[command(name = "raifetch", about = "Fast system info fetch tool", version)]
+struct Cli {
+    #[arg(short, long)]
+    image: Option<String>,
+    #[arg(long)]
+    no_image: bool,
+    #[arg(long, value_name = "BACKEND")]
+    backend: Option<String>,
+    #[arg(long, value_name = "WHEN", default_value = "auto")]
+    color: String,
+    #[arg(long)]
+    config_path: bool,
+    #[arg(long)]
+    list_modules: bool,
+    #[arg(long)]
+    generate_config: bool,
+    #[arg(long)]
+    install: bool,
+    /// Print only one module's value (useful for status bars)
+    #[arg(long, value_name = "MODULE")]
+    module: Option<String>,
+}
+
+// ─── Main ────────────────────────────────────────────────────────────────────
+
+fn main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
+
+    match cli.color.as_str() {
+        "always" => owo_colors::set_override(true),
+        "never"  => owo_colors::set_override(false),
+        _        => {}
+    }
+
+    if cli.config_path     { println!("{}", Config::path().display()); return Ok(()); }
+    if cli.generate_config { println!("{}", Config::default_toml());   return Ok(()); }
+    if cli.install         { return do_install(); }
+
+    let cfg = Config::load()?;
+
+    if cli.list_modules {
+        let all = ["os","host","kernel","uptime","cpu","memory","swap","disk",
+                   "battery","network","resolution","shell","terminal","de","wm",
+                   "packages","locale","colors"];
+        println!("Available modules:");
+        for m in all { println!("  {m}"); }
+        if !cfg.modules.custom.is_empty() {
+            println!("Custom modules:");
+            for c in &cfg.modules.custom { println!("  {}", c.key); }
+        }
+        return Ok(());
+    }
+
+    // ── Resolve label color (auto = detect distro brand color) ────────────────
+    let label_color = if cfg.theme.label_color == "auto" {
+        distro_auto_color()
+    } else {
+        cfg.theme.label_color.clone()
+    };
+
+    // ── sysinfo ──────────────────────────────────────────────────────────────
+    let mut sys = System::new_all();
+    sys.refresh_all();
+    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
+    sys.refresh_all();
+    let sys = Arc::new(sys);
+
+    // ── Theme ────────────────────────────────────────────────────────────────
+    let theme = Theme {
+        label_color,
+        value_color:  cfg.theme.value_color.clone(),
+        separator:    cfg.general.separator.clone(),
+        bold_labels:  cfg.theme.bold_labels,
+        bar_width:    cfg.theme.bar_width,
+        bar_fill:     cfg.theme.bar_fill,
+        bar_empty:    cfg.theme.bar_empty,
+        icons:        cfg.theme.icons,
+        align_labels: cfg.theme.align_labels,
+    };
+
+    // ── Pre-detect DE for WM dedup ────────────────────────────────────────────
+    let de_val = detect_de();
+
+    // ── Build + collect modules ────────────────────────────────────────────────
+    let modules = build_modules(Arc::clone(&sys), &cfg.modules, &theme, &de_val, cfg.general.auto_hide_wm);
+
+    // ── --module: single module output for status bars ────────────────────────
+    if let Some(target) = &cli.module {
+        let target_lc = target.to_lowercase();
+        for m in &modules {
+            if m.key().to_lowercase() == target_lc {
+                if let Ok(v) = m.value() {
+                    let stdout = io::stdout();
+                    let mut out = io::BufWriter::new(stdout.lock());
+                    writeln!(out, "{}", theme.format_line(m.key(), &v))?;
+                    out.flush()?;
+                }
+                return Ok(());
+            }
+        }
+        eprintln!("raifetch: unknown module '{target}'. Run --list-modules to see available.");
+        return Ok(());
+    }
+
+    // ── Parallel collection ───────────────────────────────────────────────────
+    let mut raw: Vec<(usize, String, String)> = modules
+        .par_iter()
+        .enumerate()
+        .filter_map(|(i, m)| m.value().ok().map(|v| (i, m.key().to_string(), v)))
+        .collect();
+    raw.sort_unstable_by_key(|(i, _, _)| *i);
+    let pairs: Vec<(String, String)> = raw.into_iter().map(|(_, k, v)| (k, v)).collect();
+
+    // ── Label alignment: find max key width ───────────────────────────────────
+    let key_width = if cfg.theme.align_labels {
+        pairs.iter().map(|(k, _)| {
+            let icon_len = if cfg.theme.icons { theme::icon_for(k).chars().count() } else { 0 };
+            k.len() + icon_len
+        }).max().unwrap_or(0)
+    } else { 0 };
+
+    // ── Logo resolution ───────────────────────────────────────────────────────
+    let logo_type = if cli.no_image { "none".to_string() }
+        else if cli.image.is_some() { "image".to_string() }
+        else { cfg.image.logo_type.clone() };
+
+    // ── Render ───────────────────────────────────────────────────────────────
+    let stdout = io::stdout();
+    let mut out = io::BufWriter::new(stdout.lock());
+    writeln!(out)?;
+
+    match logo_type.as_str() {
+        "none" => {
+            print_info_only(&mut out, &pairs, &theme, &cfg, key_width)?;
+        }
+        "ascii" => {
+            let logo = resolve_ascii_logo(&cfg);
+            print_ascii_sideby(&mut out, &logo, &pairs, &theme, &cfg, cfg.general.gap, key_width)?;
+        }
+        "image" => {
+            match load_image(cli.image.as_deref(), cfg.image.path.as_deref()) {
+                Some(img) => render_image(&mut out, &img, &cfg, &pairs, &theme, key_width, cli.backend.as_deref())?,
+                None      => {
+                    let logo = resolve_ascii_logo(&cfg);
+                    print_ascii_sideby(&mut out, &logo, &pairs, &theme, &cfg, cfg.general.gap, key_width)?;
+                }
+            }
+        }
+        _ /* "auto" */ => {
+            match load_image(cli.image.as_deref(), cfg.image.path.as_deref()) {
+                Some(img) => render_image(&mut out, &img, &cfg, &pairs, &theme, key_width, cli.backend.as_deref())?,
+                None      => {
+                    let logo = resolve_ascii_logo(&cfg);
+                    print_ascii_sideby(&mut out, &logo, &pairs, &theme, &cfg, cfg.general.gap, key_width)?;
+                }
+            }
+        }
+    }
+
+    if cfg.modules.show_colors {
+        writeln!(out)?;
+        writeln!(out, "{}", color_blocks())?;
+    }
+    writeln!(out)?;
+    out.flush()?;
+    Ok(())
+}
+
+// ─── Render helpers ───────────────────────────────────────────────────────────
+
+fn build_header(theme: &Theme, cfg: &Config) -> Vec<String> {
+    if !cfg.general.show_header { return vec![]; }
+    let user = whoami::username();
+    let host = whoami::devicename();
+    vec![
+        format!("  {}@{}", theme.apply_label(&user), theme.apply_label(&host)),
+        format!("  {}", theme.apply_label(&"─".repeat(user.len() + host.len() + 1))),
+    ]
+}
+
+fn format_pairs(pairs: &[(String, String)], theme: &Theme, key_width: usize) -> Vec<String> {
+    pairs.iter()
+        .map(|(k, v)| theme.format_line_aligned(k, v, key_width))
+        .collect()
+}
+
+fn print_info_only(
+    out: &mut impl Write,
+    pairs: &[(String, String)],
+    theme: &Theme,
+    cfg: &Config,
+    key_width: usize,
+) -> anyhow::Result<()> {
+    for line in build_header(theme, cfg) { writeln!(out, "{line}")?; }
+    for line in format_pairs(pairs, theme, key_width) { writeln!(out, "{line}")?; }
+    Ok(())
+}
+
+fn print_ascii_sideby(
+    out: &mut impl Write,
+    logo: &ascii::AsciiLogo,
+    pairs: &[(String, String)],
+    theme: &Theme,
+    cfg: &Config,
+    gap: usize,
+    key_width: usize,
+) -> anyhow::Result<()> {
+    let mut info = build_header(theme, cfg);
+    info.extend(format_pairs(pairs, theme, key_width));
+
+    let pad   = " ".repeat(logo.width);
+    let gap_s = " ".repeat(gap);
+    let total = logo.lines.len().max(info.len());
+    for i in 0..total {
+        let left  = logo.lines.get(i).map(String::as_str).unwrap_or(pad.as_str());
+        let right = info.get(i).cloned().unwrap_or_default();
+        writeln!(out, "{left}{gap_s}{right}")?;
+    }
+    Ok(())
+}
+
+fn print_kitty_sideby(
+    out: &mut impl Write,
+    img_str: &str,
+    img_cols: u16,
+    img_rows: u16,
+    pairs: &[(String, String)],
+    theme: &Theme,
+    cfg: &Config,
+    gap: usize,
+    key_width: usize,
+) -> anyhow::Result<()> {
+    let mut info = build_header(theme, cfg);
+    info.extend(format_pairs(pairs, theme, key_width));
+
+    write!(out, "{img_str}")?;
+    out.flush()?;
+    write!(out, "\x1b[{img_rows}A")?;
+
+    let col = img_cols as usize + gap + 1;
+    for (i, line) in info.iter().enumerate() {
+        write!(out, "\x1b[{col}G{line}")?;
+        if i + 1 < img_rows as usize { write!(out, "\x1b[1B")?; }
+    }
+    let remaining = (img_rows as usize).saturating_sub(info.len());
+    if remaining > 0 { write!(out, "\x1b[{remaining}B")?; }
+    write!(out, "\x1b[1G")?;
+    writeln!(out)?;
+    Ok(())
+}
+
+fn render_image(
+    out: &mut impl Write,
+    img: &DynamicImage,
+    cfg: &Config,
+    pairs: &[(String, String)],
+    theme: &Theme,
+    key_width: usize,
+    backend_override: Option<&str>,
+) -> anyhow::Result<()> {
+    let backend = select_backend(backend_override);
+    match backend.render(img, cfg.image.width, cfg.image.height) {
+        Ok((s, cols, rows)) if backend.name() == "kitty" => {
+            print_kitty_sideby(out, &s, cols, rows, pairs, theme, cfg, cfg.general.gap, key_width)
+        }
+        Ok((s, cols, rows)) => {
+            let lines = render_side_by_side(s, cols, rows, false, pairs, theme, cfg.general.gap);
+            for l in &lines { writeln!(out, "{l}")?; }
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("raifetch: image error: {e}");
+            let logo = resolve_ascii_logo(cfg);
+            print_ascii_sideby(out, &logo, pairs, theme, cfg, cfg.general.gap, key_width)
+        }
+    }
+}
+
+// ─── Misc helpers ─────────────────────────────────────────────────────────────
+
+fn resolve_ascii_logo(cfg: &Config) -> ascii::AsciiLogo {
+    // Custom file takes priority
+    if let Some(file) = &cfg.image.ascii_file {
+        if let Some(logo) = ascii::load_from_file(file) {
+            return logo;
+        }
+    }
+    if cfg.image.ascii_distro == "auto" {
+        ascii::auto_logo()
+    } else {
+        ascii::get_logo(&cfg.image.ascii_distro)
+    }
+}
+
+fn load_image(cli_path: Option<&str>, cfg_path: Option<&str>) -> Option<DynamicImage> {
+    let p = cli_path.or(cfg_path).filter(|s| !s.is_empty())?;
+    let expanded = Config::expand_path(p);
+    ::image::open(&expanded)
+        .map_err(|e| eprintln!("raifetch: could not load image '{}': {e}", expanded.display()))
+        .ok()
+}
+
+fn select_backend(name: Option<&str>) -> Box<dyn ImageBackend> {
+    match name {
+        Some("kitty") => Box::new(KittyBackend::new()),
+        Some("sixel") => Box::new(SixelBackend::new()),
+        Some("block") => Box::new(BlockBackend::new()),
+        _             => auto_detect(),
+    }
+}
+
+
+fn do_install() -> anyhow::Result<()> {
+    let exe  = std::env::current_exe()?;
+    let dest = dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("Cannot find home dir"))?
+        .join(".local/bin/raifetch");
+    std::fs::create_dir_all(dest.parent().unwrap())?;
+    std::fs::copy(&exe, &dest)?;
+    println!("Installed to {}", dest.display());
+    println!("Make sure ~/.local/bin is in your PATH.");
+    Ok(())
+}

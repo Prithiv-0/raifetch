@@ -1,0 +1,67 @@
+# raifetch configuration
+# Default location: ~/.config/raifetch/config.toml
+# Print this file with: raifetch --generate-config
+
+[general]
+separator    = " → "
+gap          = 3
+show_header  = true   # Show user@host header above info
+auto_hide_wm = true   # Hide WM line when it equals DE (e.g. Hyprland)
+
+[image]
+enabled      = true
+# logo_type: auto | image | ascii | none
+#   auto  = use image if path set, else ascii logo
+#   image = always use pixel image (kitty/sixel/block backend)
+#   ascii = always use bundled ASCII art
+#   none  = no logo at all
+logo_type    = "auto"
+path         = ""         # e.g. "/home/you/Pictures/logo.png"
+width        = 32         # terminal columns
+height       = 0          # rows (0 = auto from aspect ratio)
+# ascii_distro: auto | arch | ubuntu | debian | endeavour | generic
+ascii_distro = "auto"
+
+[theme]
+label_color  = "bright_cyan"
+value_color  = "white"
+bold_labels  = false
+bar_width    = 20
+bar_fill     = "█"
+bar_empty    = "░"
+
+[modules]
+order = [
+  "os","host","kernel","uptime","cpu","memory","swap",
+  "disk","battery","network","resolution",
+  "shell","terminal","de","wm","packages","locale","colors"
+]
+
+show_os         = true
+show_host       = true
+show_kernel     = true
+show_uptime     = true
+show_cpu        = true
+show_memory     = true
+show_swap       = true
+show_disk       = true
+show_all_disks  = false   # true = show all mount points, false = root only
+show_battery    = true
+show_network    = true
+show_resolution = true
+show_shell      = true
+show_terminal   = true
+show_de         = true
+show_wm         = true
+show_packages   = true
+show_locale     = true
+show_colors     = true
+
+# Custom shell-script modules (run in parallel with other modules)
+# [[modules.custom]]
+# key     = "Weather"
+# command = "curl -s 'wttr.in/?format=1' 2>/dev/null"
+#
+# [[modules.custom]]
+# key     = "Public IP"
+# command = "curl -s ifconfig.me 2>/dev/null"
