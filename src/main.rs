@@ -86,8 +86,6 @@ fn main() -> anyhow::Result<()> {
     // ── sysinfo ──────────────────────────────────────────────────────────────
     let mut sys = System::new_all();
     sys.refresh_all();
-    std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    sys.refresh_all();
     let sys = Arc::new(sys);
 
     // ── Theme ────────────────────────────────────────────────────────────────
