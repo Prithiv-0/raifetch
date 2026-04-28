@@ -12,7 +12,6 @@ use std::io::{self, Write};
 use clap::Parser;
 use rayon::prelude::*;
 use sysinfo::System;
-use ::image::DynamicImage;
 
 use crate::config::Config;
 use crate::image::{auto_detect, KittyBackend, SixelBackend, BlockBackend, ImageBackend};
@@ -166,19 +165,15 @@ fn main() -> anyhow::Result<()> {
             let logo = resolve_ascii_logo(&cfg);
             print_ascii_sideby(&mut out, &logo, &pairs, &theme, &cfg, cfg.general.gap, key_width)?;
         }
-        "image" => {
-            match load_image(cli.image.as_deref(), cfg.image.path.as_deref()) {
-                Some(img) => render_image(&mut out, &img, &cfg, &pairs, &theme, key_width, cli.backend.as_deref())?,
-                None      => {
-                    let logo = resolve_ascii_logo(&cfg);
-                    print_ascii_sideby(&mut out, &logo, &pairs, &theme, &cfg, cfg.general.gap, key_width)?;
+        "image" | _ /* "auto" */ => {
+            let path_opt = resolve_image_path(cli.image.as_deref(), cfg.image.path.as_deref());
+            match path_opt {
+                Some(img_path) => {
+                    render_image_cached(
+                        &mut out, &img_path, &cfg, &pairs, &theme, key_width, cli.backend.as_deref(),
+                    )?;
                 }
-            }
-        }
-        _ /* "auto" */ => {
-            match load_image(cli.image.as_deref(), cfg.image.path.as_deref()) {
-                Some(img) => render_image(&mut out, &img, &cfg, &pairs, &theme, key_width, cli.backend.as_deref())?,
-                None      => {
+                None => {
                     let logo = resolve_ascii_logo(&cfg);
                     print_ascii_sideby(&mut out, &logo, &pairs, &theme, &cfg, cfg.general.gap, key_width)?;
                 }
@@ -278,9 +273,10 @@ fn print_kitty_sideby(
     Ok(())
 }
 
-fn render_image(
+/// Render with cache: check cache first → if miss, load PNG → render → save cache.
+fn render_image_cached(
     out: &mut impl Write,
-    img: &DynamicImage,
+    img_path: &std::path::Path,
     cfg: &Config,
     pairs: &[(String, String)],
     theme: &Theme,
@@ -288,7 +284,26 @@ fn render_image(
     backend_override: Option<&str>,
 ) -> anyhow::Result<()> {
     let backend = select_backend(backend_override);
-    match backend.render(img, cfg.image.width, cfg.image.height) {
+
+    // 1. Try render cache (skips PNG decode on repeated runs)
+    let render_result: anyhow::Result<(String, u16, u16)> = if let Some(cached) = image::cache::load(
+        img_path, backend.name(), cfg.image.width, cfg.image.height,
+    ) {
+        Ok((cached.data, cached.cols, cached.rows))
+    } else {
+        // 2. Cache miss — decode PNG and render
+        let img = ::image::open(img_path)
+            .map_err(|e| anyhow::anyhow!("Cannot load image '{}': {e}", img_path.display()))?;
+        let result = backend.render(&img, cfg.image.width, cfg.image.height)?;
+        // 3. Save to cache for next run
+        image::cache::save(
+            img_path, backend.name(), cfg.image.width, cfg.image.height,
+            &result.0, result.1, result.2,
+        );
+        Ok(result)
+    };
+
+    match render_result {
         Ok((s, cols, rows)) if backend.name() == "kitty" => {
             print_kitty_sideby(out, &s, cols, rows, pairs, theme, cfg, cfg.general.gap, key_width)
         }
@@ -321,12 +336,10 @@ fn resolve_ascii_logo(cfg: &Config) -> ascii::AsciiLogo {
     }
 }
 
-fn load_image(cli_path: Option<&str>, cfg_path: Option<&str>) -> Option<DynamicImage> {
+/// Resolve the image path from CLI override or config, expanding `~`.
+fn resolve_image_path(cli_path: Option<&str>, cfg_path: Option<&str>) -> Option<std::path::PathBuf> {
     let p = cli_path.or(cfg_path).filter(|s| !s.is_empty())?;
-    let expanded = Config::expand_path(p);
-    ::image::open(&expanded)
-        .map_err(|e| eprintln!("raifetch: could not load image '{}': {e}", expanded.display()))
-        .ok()
+    Some(Config::expand_path(p))
 }
 
 fn select_backend(name: Option<&str>) -> Box<dyn ImageBackend> {

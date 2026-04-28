@@ -1,4 +1,5 @@
 pub mod block;
+pub mod cache;
 pub mod kitty;
 pub mod sixel;
 
