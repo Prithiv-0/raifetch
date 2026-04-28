@@ -35,6 +35,7 @@ impl InfoModule for DiskModule {
 struct MountEntry { mount: String, fstype: String, total: u64, avail: u64 }
 
 /// Read disk stats directly from /proc/mounts + statvfs.
+#[cfg(target_os = "linux")]
 fn read_mounts() -> anyhow::Result<Vec<MountEntry>> {
     let text = std::fs::read_to_string("/proc/mounts")?;
     let mut out = Vec::new();
@@ -61,6 +62,47 @@ fn read_mounts() -> anyhow::Result<Vec<MountEntry>> {
     Ok(out)
 }
 
+#[cfg(target_os = "macos")]
+fn read_mounts() -> anyhow::Result<Vec<MountEntry>> {
+    let mut out = Vec::new();
+    let cmd = std::process::Command::new("df").arg("-k").output()?;
+    let text = String::from_utf8_lossy(&cmd.stdout);
+    let mut lines = text.lines();
+    lines.next(); // Skip header
+    for line in lines {
+        let mut cols = line.split_whitespace();
+        let _fs = cols.next().unwrap_or("");
+        let total_kb: u64 = cols.next().unwrap_or("0").parse().unwrap_or(0);
+        let _used_kb: u64 = cols.next().unwrap_or("0").parse().unwrap_or(0);
+        let avail_kb: u64 = cols.next().unwrap_or("0").parse().unwrap_or(0);
+        let _capacity = cols.next().unwrap_or("");
+        let _iused = cols.next().unwrap_or("");
+        let _ifree = cols.next().unwrap_or("");
+        let _iused_pct = cols.next().unwrap_or("");
+        let mount = cols.collect::<Vec<_>>().join(" ");
+        
+        if mount.starts_with("/System/Volumes") || mount == "/dev" || mount == "/net" || mount == "/home" {
+            continue;
+        }
+        
+        if total_kb > 0 {
+            out.push(MountEntry {
+                mount: if mount.is_empty() { "/".to_string() } else { mount },
+                fstype: "apfs".to_string(), // mostly apfs on mac
+                total: total_kb * 1024,
+                avail: avail_kb * 1024,
+            });
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn read_mounts() -> anyhow::Result<Vec<MountEntry>> {
+    Ok(Vec::new())
+}
+
+#[cfg(target_os = "linux")]
 /// Get total/available bytes for a mount point via statfs syscall.
 fn statvfs_bytes(mount: &str) -> Option<(u64, u64)> {
     use std::ffi::CString;
@@ -78,6 +120,7 @@ fn statvfs_bytes(mount: &str) -> Option<(u64, u64)> {
 }
 
 // Minimal statfs binding without the libc crate
+#[cfg(target_os = "linux")]
 #[repr(C)]
 struct libc_statfs {
     f_type:    i64,
@@ -94,6 +137,7 @@ struct libc_statfs {
     f_spare:   [i64; 4],
 }
 
+#[cfg(target_os = "linux")]
 unsafe extern "C" {
     fn statfs(path: *const i8, buf: *mut libc_statfs) -> i32;
 }

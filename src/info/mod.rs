@@ -4,6 +4,7 @@ use crate::theme::Theme;
 pub mod battery;
 pub mod cpu;
 pub mod disk;
+pub mod gpu;
 pub mod host;
 pub mod kernel;
 pub mod locale;
@@ -22,6 +23,7 @@ pub mod wm;
 pub use battery::BatteryModule;
 pub use cpu::CpuModule;
 pub use disk::DiskModule;
+pub use gpu::GpuModule;
 pub use host::HostModule;
 pub use kernel::KernelModule;
 pub use locale::LocaleModule;
@@ -76,6 +78,7 @@ pub fn build_modules(
         ("kernel",     cfg.show_kernel,            Box::new(KernelModule::new())),
         ("uptime",     cfg.show_uptime,            Box::new(UptimeModule::new())),
         ("cpu",        cfg.show_cpu,               Box::new(CpuModule::new())),
+        ("gpu",        cfg.show_gpu,               Box::new(GpuModule::new())),
         ("memory",     cfg.show_memory,            Box::new(MemoryModule::new(theme.clone()))),
         ("swap",       cfg.show_swap,              Box::new(SwapModule::new(theme.clone()))),
         ("disk",       cfg.show_disk,              Box::new(DiskModule::new(cfg.show_all_disks, theme.clone()))),

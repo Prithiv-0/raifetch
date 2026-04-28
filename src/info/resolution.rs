@@ -7,14 +7,20 @@ impl ResolutionModule { pub fn new() -> Self { Self } }
 impl InfoModule for ResolutionModule {
     fn key(&self) -> &'static str { "Resolution" }
     fn value(&self) -> anyhow::Result<String> {
-        // Wayland: try kscreen-doctor or hyprctl
-        if std::env::var("WAYLAND_DISPLAY").is_ok() {
-            if let Some(r) = hyprctl_res() { return Ok(r); }
-            if let Some(r) = kscreen_res() { return Ok(r); }
-            if let Some(r) = wlr_randr_res() { return Ok(r); }
+        #[cfg(target_os = "macos")]
+        if let Some(r) = macos_res() { return Ok(r); }
+
+        #[cfg(target_os = "linux")]
+        {
+            // Wayland: try kscreen-doctor or hyprctl
+            if std::env::var("WAYLAND_DISPLAY").is_ok() {
+                if let Some(r) = hyprctl_res() { return Ok(r); }
+                if let Some(r) = kscreen_res() { return Ok(r); }
+                if let Some(r) = wlr_randr_res() { return Ok(r); }
+            }
+            // X11 fallback
+            if let Some(r) = xrandr_res() { return Ok(r); }
         }
-        // X11 fallback
-        if let Some(r) = xrandr_res() { return Ok(r); }
         Ok("unknown".to_string())
     }
 }
@@ -84,4 +90,18 @@ fn extract_float(s: &str, key: &str) -> Option<f64> {
     let i = s.find(key)? + key.len();
     let rest = s[i..].trim_start_matches(|c: char| c == ' ' || c == ':');
     rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect::<String>().parse().ok()
+}
+
+#[cfg(target_os = "macos")]
+fn macos_res() -> Option<String> {
+    let out = Command::new("system_profiler").args(["SPDisplaysDataType"]).output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut results = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("Resolution: ") {
+            results.push(rest.trim().to_string());
+        }
+    }
+    if results.is_empty() { None } else { Some(results.join(", ")) }
 }

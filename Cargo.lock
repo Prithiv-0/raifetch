@@ -491,6 +491,7 @@ dependencies = [
  "clap",
  "dirs",
  "image",
+ "libc",
  "owo-colors",
  "rayon",
  "serde",

@@ -32,7 +32,7 @@ bar_empty    = "░"
 
 [modules]
 order = [
-  "os","host","kernel","uptime","cpu","memory","swap",
+  "os","host","kernel","uptime","cpu","gpu","memory","swap",
   "disk","battery","network","resolution",
   "shell","terminal","de","wm","packages","locale","colors"
 ]
@@ -42,6 +42,7 @@ show_host       = true
 show_kernel     = true
 show_uptime     = true
 show_cpu        = true
+show_gpu        = false
 show_memory     = true
 show_swap       = true
 show_disk       = true

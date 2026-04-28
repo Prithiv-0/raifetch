@@ -74,7 +74,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     if cli.list_modules {
-        let all = ["os","host","kernel","uptime","cpu","memory","swap","disk",
+        let all = ["os","host","kernel","uptime","cpu","gpu","memory","swap","disk",
                    "battery","network","resolution","shell","terminal","de","wm",
                    "packages","locale","colors"];
         println!("Available modules:");

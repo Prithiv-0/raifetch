@@ -14,6 +14,7 @@ impl InfoModule for WmModule {
     }
 }
 
+#[cfg(target_os = "linux")]
 pub fn detect_de() -> String {
     for var in ["XDG_CURRENT_DESKTOP", "DESKTOP_SESSION"] {
         if let Ok(v) = std::env::var(var) {
@@ -23,6 +24,17 @@ pub fn detect_de() -> String {
     "unknown".to_string()
 }
 
+#[cfg(target_os = "macos")]
+pub fn detect_de() -> String {
+    "Aqua".to_string()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+pub fn detect_de() -> String {
+    "unknown".to_string()
+}
+
+#[cfg(target_os = "linux")]
 pub fn detect_wm() -> String {
     if std::env::var("WAYLAND_DISPLAY").is_ok() {
         for (var, name) in [
@@ -45,5 +57,15 @@ pub fn detect_wm() -> String {
             }
         }
     }
+    "unknown".to_string()
+}
+
+#[cfg(target_os = "macos")]
+pub fn detect_wm() -> String {
+    "Quartz Compositor".to_string()
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+pub fn detect_wm() -> String {
     "unknown".to_string()
 }

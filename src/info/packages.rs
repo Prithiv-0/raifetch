@@ -49,6 +49,21 @@ fn collect_packages() -> String {
             parts.push(format!("{n} (snap)"));
         }
     }
+    if cmd_exists("brew") {
+        if let Some(n) = count_lines(&["brew", "list", "--formula"]) {
+            parts.push(format!("{n} (brew)"));
+        }
+    }
+    if cmd_exists("port") {
+        if let Some(n) = count_lines(&["port", "installed"]) {
+            parts.push(format!("{n} (macports)"));
+        }
+    }
+    if cmd_exists("nix-env") {
+        if let Some(n) = count_lines(&["nix-env", "-qa", "--installed"]) {
+            parts.push(format!("{n} (nix)"));
+        }
+    }
 
     if parts.is_empty() { "unknown".to_string() } else { parts.join(", ") }
 }

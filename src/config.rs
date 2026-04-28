@@ -95,6 +95,7 @@ pub struct ModulesConfig {
     #[serde(default = "default_true")]  pub show_kernel:     bool,
     #[serde(default = "default_true")]  pub show_uptime:     bool,
     #[serde(default = "default_true")]  pub show_cpu:        bool,
+    #[serde(default = "default_false")] pub show_gpu:        bool,
     #[serde(default = "default_true")]  pub show_memory:     bool,
     #[serde(default = "default_true")]  pub show_swap:       bool,
     #[serde(default = "default_true")]  pub show_disk:       bool,
@@ -113,7 +114,7 @@ pub struct ModulesConfig {
     #[serde(default)] pub custom: Vec<CustomModule>,
 }
 fn default_order() -> Vec<String> {
-    ["os","host","kernel","uptime","cpu","memory","swap","disk","battery","network",
+    ["os","host","kernel","uptime","cpu","gpu","memory","swap","disk","battery","network",
      "resolution","shell","terminal","de","wm","packages","locale","colors"]
         .iter().map(|s| s.to_string()).collect()
 }
@@ -122,7 +123,7 @@ impl Default for ModulesConfig {
         Self {
             order: default_order(),
             show_os: true, show_host: true, show_kernel: true, show_uptime: true,
-            show_cpu: true, show_memory: true, show_swap: true, show_disk: true,
+            show_cpu: true, show_gpu: false, show_memory: true, show_swap: true, show_disk: true,
             show_all_disks: false, show_battery: true, show_network: true,
             show_resolution: true, show_shell: true, show_terminal: true,
             show_de: true, show_wm: true, show_packages: true,
