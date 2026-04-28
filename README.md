@@ -22,91 +22,95 @@ Inspired by [fastfetch](https://github.com/fastfetch-cli/fastfetch) — with a n
 
 ## Features
 
-- ⚡ **Parallel info collection** via `rayon` — all modules run concurrently
-- 🖼️ **Image backends**: Kitty graphics protocol, Sixel (foot/xterm), Unicode block fallback
-- 🎨 **ASCII distro logos** — bundled for Arch, EndeavourOS, Ubuntu, Debian, NixOS, Fedora, Manjaro, openSUSE, Pop!\_OS, Linux Mint; or load your own file
-- 📊 **Progress bars** on Memory, Swap, Disk, and Battery with threshold colouring
-- 🔤 **NerdFont icons** (optional, `icons = true` in config)
-- 📐 **Label alignment** — all values start at the same column
-- 🎨 **Distro auto-colours** — `label_color = "auto"` picks your distro's brand colour
-- 📦 **Package counts** cached for 5 minutes — fast repeated runs
-- 🖥️ **Wayland-native** resolution detection (Hyprland, sway, kscreen)
-- 🔧 **Fully configurable** via TOML with no required setup
+- **Parallel info collection** via `rayon` — all modules run concurrently for optimal performance.
+- **Image backends**: Kitty graphics protocol, Sixel (foot/xterm), and Unicode block fallback.
+- **ASCII distro logos** — bundled for Arch, EndeavourOS, Ubuntu, Debian, NixOS, Fedora, Manjaro, openSUSE, Pop!\_OS, and Linux Mint, with support for custom file loading.
+- **Progress bars** on Memory, Swap, Disk, and Battery with threshold coloring.
+- **NerdFont icons** (optional, set `icons = true` in config).
+- **Label alignment** — all values start at the same column for a clean layout.
+- **Distro auto-colors** — `label_color = "auto"` automatically picks your distribution's brand color.
+- **Package counts** cached for 5 minutes to ensure fast repeated runs.
+- **Wayland-native** resolution detection (Hyprland, sway, kscreen).
+- **Fully configurable** via TOML with no required setup.
 
 ## Modules
 
-| Module | Info shown |
+| Module | Information Displayed |
 |---|---|
-| OS | Distro name + architecture |
+| OS | Distro name and architecture |
 | Host | Hardware model (from DMI) |
 | Kernel | Linux kernel version |
 | Uptime | System uptime |
 | CPU | Model, core count, frequency, usage % |
-| Memory | Used / Total + progress bar |
-| Swap | Used / Total + progress bar |
-| Disk | Used / Total + progress bar + filesystem (all mounts optional) |
-| Battery | Charge %, status icon + progress bar |
-| Network | Interface name + local IP |
-| Resolution | Active display resolution + refresh rate |
-| Shell | Shell name + version |
+| GPU | GPU vendor and model |
+| Memory | Used / Total and progress bar |
+| Swap | Used / Total and progress bar |
+| Disk | Used / Total, progress bar, and filesystem (all mounts optional) |
+| Battery | Charge %, status icon, and progress bar |
+| Network | Interface name and local IP |
+| Resolution | Active display resolution and refresh rate |
+| Shell | Shell name and version |
 | Terminal | Terminal emulator |
 | DE | Desktop environment |
 | WM | Window manager (auto-hidden when same as DE) |
 | Packages | Package counts (pacman, dpkg, rpm, flatpak, snap) |
-| Locale | LANG + timezone |
+| Locale | LANG and timezone |
 | Colors | 16-color palette swatches |
 | Custom | Run any shell command as a module |
 
 ## Installation
 
-### From source
+### From Source
+
+Ensure you have Rust and Cargo installed, then run the following:
 
 ```bash
-git clone https://github.com/yourname/raifetch
+git clone https://github.com/Prithiv-0/raifetch.git
 cd raifetch
 cargo build --release
-./target/release/raifetch --install    # installs to ~/.local/bin/raifetch
+./target/release/raifetch --install
 ```
+This installs the binary to `~/.local/bin/raifetch`.
 
-Make sure `~/.local/bin` is in your `PATH`:
+Make sure `~/.local/bin` is in your `PATH`. For example, in Zsh:
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
 
 ## Configuration
 
-raifetch reads `~/.config/raifetch/config.toml`.  
-Generate the default config:
+`raifetch` reads its configuration from `~/.config/raifetch/config.toml`.  
+To generate the default configuration file:
 
 ```bash
 raifetch --generate-config > ~/.config/raifetch/config.toml
 ```
 
-### Key options
+### Key Options
 
 ```toml
 [general]
-show_header  = true    # user@host header
-auto_hide_wm = true    # hide WM when it matches DE
+show_header  = true    # Show user@host header
+auto_hide_wm = true    # Hide WM when it matches the DE
 
 [image]
-logo_type    = "auto"  # auto | image | ascii | none
+logo_type    = "auto"  # Options: auto | image | ascii | none
 path         = "~/Pictures/logo.png"
-ascii_distro = "auto"  # auto-detect, or: arch | ubuntu | debian | endeavour | nixos | fedora | manjaro | opensuse | pop | mint
-ascii_file   = ""      # path to a custom ASCII art .txt file
+ascii_distro = "auto"  # Auto-detect, or specify: arch | ubuntu | debian | endeavour | nixos | fedora | manjaro | opensuse | pop | mint
+ascii_file   = ""      # Path to a custom ASCII art .txt file
 
 [theme]
-label_color  = "auto"  # auto = distro brand colour, or: bright_cyan, red, green, ...
+label_color  = "auto"  # 'auto' uses distro brand color. Other options: bright_cyan, red, green, etc.
 value_color  = "white"
 bold_labels  = false
-icons        = false   # NerdFont icons (requires Nerd Font)
-align_labels = true    # pad labels to same width
+icons        = false   # Enable NerdFont icons (requires a Nerd Font)
+align_labels = true    # Pad labels to the same width
 bar_width    = 20
 bar_fill     = "█"
 bar_empty    = "░"
 
 [modules]
-show_all_disks = false  # true = show all mount points
+show_all_disks = false # Set to true to show all mount points
 
 # Custom shell modules
 [[modules.custom]]
@@ -114,7 +118,7 @@ key     = "Weather"
 command = "curl -s 'wttr.in/?format=1'"
 ```
 
-## CLI flags
+## CLI Flags
 
 ```
 raifetch [OPTIONS]
@@ -133,22 +137,23 @@ Options:
   -V, --version               Print version
 ```
 
-### Single module output (for waybar / polybar)
+### Single Module Output
+This is particularly useful for integration with tools like `waybar` or `polybar`:
 
 ```bash
-raifetch --module memory    # prints just the memory line
-raifetch --module cpu       # prints just the cpu line
+raifetch --module memory    # Prints only the memory information
+raifetch --module cpu       # Prints only the CPU information
 ```
 
-## Image backends
+## Image Backends
 
-| Backend | Terminal | Protocol |
+| Backend | Supported Terminals | Protocol |
 |---|---|---|
 | `kitty` | Kitty | Kitty graphics protocol |
 | `sixel` | foot, xterm, mlterm | Sixel |
 | `block` | Any (fallback) | Unicode half-blocks + TrueColor |
 
-Backend is auto-detected. Force with `--backend kitty`.
+The backend is auto-detected. You can force a specific backend using `--backend kitty`.
 
 ## License
 
