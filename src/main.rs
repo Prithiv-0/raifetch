@@ -83,9 +83,15 @@ fn main() -> anyhow::Result<()> {
         cfg.theme.label_color.clone()
     };
 
-    // ── sysinfo ──────────────────────────────────────────────────────────────
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    // ── sysinfo ───────────────────────────────────────────────────────────────
+    // Only load what we actually use from sysinfo:
+    //   - CPU info (model name, core count, frequency)
+    //   - Memory (used/total RAM and swap)
+    // Disk, network, packages, and resolution all read from /proc or subprocesses directly.
+    // new_all() would also scan every running process (~10ms extra) — we skip that.
+    let mut sys = System::new();
+    sys.refresh_cpu_all();
+    sys.refresh_memory();
     let sys = Arc::new(sys);
 
     // ── Theme ────────────────────────────────────────────────────────────────
