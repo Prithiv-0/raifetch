@@ -1,15 +1,19 @@
+use super::{resize_to_cells, ImageBackend};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use image::{DynamicImage, ImageEncoder, codecs::png::PngEncoder};
-use super::{ImageBackend, resize_to_cells};
+use image::{codecs::png::PngEncoder, DynamicImage, ImageEncoder};
 
 pub struct KittyBackend;
 
 impl KittyBackend {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 impl ImageBackend for KittyBackend {
-    fn name(&self) -> &'static str { "kitty" }
+    fn name(&self) -> &'static str {
+        "kitty"
+    }
 
     fn is_supported(&self) -> bool {
         // Kitty sets TERM=xterm-kitty, or KITTY_WINDOW_ID
@@ -31,12 +35,14 @@ impl ImageBackend for KittyBackend {
         let mut png_bytes: Vec<u8> = Vec::new();
         let encoder = PngEncoder::new(&mut png_bytes);
         let rgba = resized.to_rgba8();
-        encoder.write_image(
-            &rgba,
-            rgba.width(),
-            rgba.height(),
-            image::ExtendedColorType::Rgba8,
-        ).map_err(|e| anyhow::anyhow!("PNG encode error: {e}"))?;
+        encoder
+            .write_image(
+                &rgba,
+                rgba.width(),
+                rgba.height(),
+                image::ExtendedColorType::Rgba8,
+            )
+            .map_err(|e| anyhow::anyhow!("PNG encode error: {e}"))?;
 
         // Base64-encode and split into ≤4096-char chunks
         let b64 = STANDARD.encode(&png_bytes);

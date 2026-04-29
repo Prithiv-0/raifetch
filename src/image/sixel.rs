@@ -1,21 +1,35 @@
+use super::{resize_to_cells, ImageBackend};
 use image::{DynamicImage, RgbaImage};
-use super::{ImageBackend, resize_to_cells};
 
 /// Basic Sixel encoder — works in foot, xterm, mlterm.
 pub struct SixelBackend;
-impl SixelBackend { pub fn new() -> Self { Self } }
+impl SixelBackend {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl ImageBackend for SixelBackend {
-    fn name(&self) -> &'static str { "sixel" }
+    fn name(&self) -> &'static str {
+        "sixel"
+    }
 
     fn is_supported(&self) -> bool {
         // foot sets TERM=foot; xterm with sixel reports VT340
         let term = std::env::var("TERM").unwrap_or_default();
-        term.contains("foot") || term.contains("xterm")
-            || std::env::var("TERM_PROGRAM").map(|t| t == "iTerm.app").unwrap_or(false)
+        term.contains("foot")
+            || term.contains("xterm")
+            || std::env::var("TERM_PROGRAM")
+                .map(|t| t == "iTerm.app")
+                .unwrap_or(false)
     }
 
-    fn render(&self, img: &DynamicImage, cols: u16, rows: u16) -> anyhow::Result<(String, u16, u16)> {
+    fn render(
+        &self,
+        img: &DynamicImage,
+        cols: u16,
+        rows: u16,
+    ) -> anyhow::Result<(String, u16, u16)> {
         let (resized, actual_cols, actual_rows) = resize_to_cells(img, cols, rows);
         let rgba = resized.to_rgba8();
         let s = encode_sixel(&rgba)?;
@@ -29,13 +43,13 @@ fn encode_sixel(img: &RgbaImage) -> anyhow::Result<String> {
     let h = img.height();
 
     // Quantize each pixel to the 256-color palette index
-    let indices: Vec<u8> = img.pixels()
-        .map(|p| quantize(p[0], p[1], p[2]))
-        .collect();
+    let indices: Vec<u8> = img.pixels().map(|p| quantize(p[0], p[1], p[2])).collect();
 
     // Only emit color definitions that are actually used
     let mut used = [false; 256];
-    for &i in &indices { used[i as usize] = true; }
+    for &i in &indices {
+        used[i as usize] = true;
+    }
 
     let mut out = String::with_capacity(w as usize * h as usize * 2);
     // DCS header: pixel aspect=0 (square), transparent bg=0, pixel size=1
@@ -56,7 +70,9 @@ fn encode_sixel(img: &RgbaImage) -> anyhow::Result<String> {
         // For each colour used in this band, emit its sixel row
 
         for col_idx in 0u8..=255 {
-            if !used[col_idx as usize] { continue; }
+            if !used[col_idx as usize] {
+                continue;
+            }
             // Check if this colour appears in this band
             let mut any = false;
             let mut sixels = String::with_capacity(w as usize);
@@ -64,7 +80,10 @@ fn encode_sixel(img: &RgbaImage) -> anyhow::Result<String> {
                 let mut bits = 0u8;
                 for dy in 0..band_h {
                     let idx = ((y + dy) * w + x) as usize;
-                    if indices[idx] == col_idx { bits |= 1 << dy; any = true; }
+                    if indices[idx] == col_idx {
+                        bits |= 1 << dy;
+                        any = true;
+                    }
                 }
                 sixels.push((bits + 63) as char);
             }
@@ -94,5 +113,9 @@ fn palette_color(idx: u8) -> (u8, u8, u8) {
     let bi = (idx % 4) as u16;
     let gi = ((idx / 4) % 8) as u16;
     let ri = (idx / 32) as u16;
-    ((ri * 255 / 7) as u8, (gi * 255 / 7) as u8, (bi * 255 / 3) as u8)
+    (
+        (ri * 255 / 7) as u8,
+        (gi * 255 / 7) as u8,
+        (bi * 255 / 3) as u8,
+    )
 }

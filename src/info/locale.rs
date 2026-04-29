@@ -1,10 +1,16 @@
 use super::InfoModule;
 
 pub struct LocaleModule;
-impl LocaleModule { pub fn new() -> Self { Self } }
+impl LocaleModule {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl InfoModule for LocaleModule {
-    fn key(&self) -> &'static str { "Locale" }
+    fn key(&self) -> &'static str {
+        "Locale"
+    }
     fn value(&self) -> anyhow::Result<String> {
         // Priority: $LANG → $LC_ALL → /etc/locale.conf → /etc/default/locale → "unknown"
         let lang = std::env::var("LANG")
@@ -16,9 +22,13 @@ impl InfoModule for LocaleModule {
             .unwrap_or_else(|| "unknown".to_string());
 
         // Timezone: $TZ → /etc/timezone → /etc/localtime symlink
-        let tz = std::env::var("TZ").ok()
-            .or_else(|| std::fs::read_to_string("/etc/timezone").ok()
-                .map(|s| s.trim().to_string()))
+        let tz = std::env::var("TZ")
+            .ok()
+            .or_else(|| {
+                std::fs::read_to_string("/etc/timezone")
+                    .ok()
+                    .map(|s| s.trim().to_string())
+            })
             .or_else(|| read_localtime_tz())
             .unwrap_or_else(|| "UTC".to_string());
 
@@ -33,7 +43,9 @@ fn read_locale_conf() -> Option<String> {
             for line in content.lines() {
                 if let Some(val) = line.strip_prefix("LANG=") {
                     let v = val.trim_matches('"').to_string();
-                    if !v.is_empty() && v != "C" { return Some(v); }
+                    if !v.is_empty() && v != "C" {
+                        return Some(v);
+                    }
                 }
             }
         }

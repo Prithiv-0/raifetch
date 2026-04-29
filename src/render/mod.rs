@@ -1,3 +1,4 @@
+use crate::info::os;
 /// Side-by-side renderer: image on the left, info lines on the right.
 ///
 /// For the Kitty backend, the image is rendered via terminal escape codes.
@@ -5,9 +6,7 @@
 ///
 /// For the block backend, the image is already a multi-line string, so we
 /// zip image lines with info lines directly.
-
 use crate::theme::Theme;
-
 
 pub fn render_side_by_side(
     image_str: String,
@@ -21,8 +20,8 @@ pub fn render_side_by_side(
     // Build styled info lines
     let info_lines: Vec<String> = {
         // Header: user@host
-        let host  = whoami::devicename();
-        let user  = whoami::username();
+        let host = os::hostname();
+        let user = os::username();
         let header = format!(
             "  {}@{}",
             theme.apply_label(&user),
@@ -50,12 +49,12 @@ pub fn render_side_by_side(
         // Block path: zip image rows with info lines
         let img_lines: Vec<&str> = image_str.lines().collect();
         let total = img_lines.len().max(info_lines.len());
-        let pad   = " ".repeat(image_cols as usize);
+        let pad = " ".repeat(image_cols as usize);
         let gap_s = " ".repeat(gap);
 
         (0..total)
             .map(|i| {
-                let img_part  = img_lines.get(i).copied().unwrap_or(pad.as_str());
+                let img_part = img_lines.get(i).copied().unwrap_or(pad.as_str());
                 let info_part = info_lines.get(i).cloned().unwrap_or_default();
                 format!("{img_part}{gap_s}{info_part}")
             })

@@ -7,6 +7,7 @@ separator    = " → "
 gap          = 3
 show_header  = true   # Show user@host header above info
 auto_hide_wm = true   # Hide WM line when it equals DE (e.g. Hyprland)
+command_timeout_ms = 1  # Per-command timeout for slow external tools
 
 [image]
 enabled      = true
@@ -32,17 +33,28 @@ bar_empty    = "░"
 
 [modules]
 order = [
-  "os","host","kernel","uptime","cpu","gpu","memory","swap",
-  "disk","battery","network","resolution",
-  "shell","terminal","de","wm","packages","locale","colors"
+  "os","host","mobo","bios","kernel","boot","bootloader","init","uptime","processes","users",
+  "cpu","gpu","memory","swap","disk","battery","network","resolution","display",
+  "theme","icons","font","shell","terminal","de","wm","packages","locale","entropy","colors"
 ]
 
 show_os         = true
 show_host       = true
+show_mobo       = false
+show_bios       = false
 show_kernel     = true
+show_boot       = false
+show_bootloader = false
+show_init       = false
 show_uptime     = true
+show_processes  = false
+show_users      = false
 show_cpu        = true
+cpu_show_temp   = false
+cpu_show_cache  = false
 show_gpu        = false
+gpu_show_temp   = false
+gpu_show_vram   = false
 show_memory     = true
 show_swap       = true
 show_disk       = true
@@ -50,13 +62,22 @@ show_all_disks  = false   # true = show all mount points, false = root only
 show_battery    = true
 show_network    = true
 show_resolution = true
+show_display    = false
+show_theme      = false
+show_icons      = false
+show_font       = false
 show_shell      = true
 show_terminal   = true
 show_de         = true
 show_wm         = true
 show_packages   = true
 show_locale     = true
+show_entropy    = false
 show_colors     = true
+
+# Extra package managers to include (opt-in)
+# e.g. ["flatpak", "snap", "nix", "port"]
+packages_extra  = []
 
 # Custom shell-script modules (run in parallel with other modules)
 # [[modules.custom]]

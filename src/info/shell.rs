@@ -1,18 +1,28 @@
+use super::{run_command_stdout, InfoModule};
 use std::process::Command;
-use super::InfoModule;
+use std::time::Duration;
 
-pub struct ShellModule;
+pub struct ShellModule {
+    timeout: Duration,
+}
 
 impl ShellModule {
-    pub fn new() -> Self { Self }
+    pub fn new(timeout: Duration) -> Self {
+        Self { timeout }
+    }
 }
 
 impl InfoModule for ShellModule {
-    fn key(&self) -> &'static str { "Shell" }
+    fn key(&self) -> &'static str {
+        "Shell"
+    }
+
+    fn run_in_background(&self) -> bool {
+        true
+    }
 
     fn value(&self) -> anyhow::Result<String> {
-        let shell_path = std::env::var("SHELL")
-            .unwrap_or_else(|_| "unknown".to_string());
+        let shell_path = std::env::var("SHELL").unwrap_or_else(|_| "unknown".to_string());
 
         let name = shell_path
             .split('/')
@@ -20,22 +30,24 @@ impl InfoModule for ShellModule {
             .unwrap_or("unknown")
             .to_string();
 
-        // Get version: first line of `shell --version`
-        let version = Command::new(&name)
-            .arg("--version")
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.lines().next().unwrap_or("").trim().to_string())
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "unknown version".to_string());
-
-        // Most shells (zsh, bash) include their name in --version output already.
-        // Avoid "zsh (zsh 5.9 ...)" by only prepending name when it's absent.
-        if version.to_lowercase().starts_with(name.to_lowercase().as_str()) {
+        if let Some(version) = shell_version_from_env(&name) {
             Ok(version)
         } else {
-            Ok(format!("{name} {version}"))
+            Ok(name)
         }
+    }
+}
+
+fn shell_version_from_env(name: &str) -> Option<String> {
+    let version = match name {
+        "bash" => std::env::var("BASH_VERSION").ok(),
+        "zsh" => std::env::var("ZSH_VERSION").ok(),
+        "fish" => std::env::var("FISH_VERSION").ok(),
+        _ => None,
+    }?;
+    if version.is_empty() {
+        None
+    } else {
+        Some(format!("{name} {version}"))
     }
 }

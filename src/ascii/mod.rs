@@ -8,19 +8,29 @@ pub struct AsciiLogo {
 /// Get a logo by distro name hint (case-insensitive substring match).
 pub fn get_logo(distro_hint: &str) -> AsciiLogo {
     let d = distro_hint.to_lowercase();
-    if      d.contains("endeavour")  { endeavour()  }
-    else if d.contains("arch")       { arch()        }
-    else if d.contains("nixos")
-         || d.contains("nix")        { nixos()       }
-    else if d.contains("fedora")     { fedora()      }
-    else if d.contains("manjaro")    { manjaro()     }
-    else if d.contains("opensuse")
-         || d.contains("suse")       { opensuse()    }
-    else if d.contains("pop")        { pop()         }
-    else if d.contains("mint")       { mint()        }
-    else if d.contains("ubuntu")     { ubuntu()      }
-    else if d.contains("debian")     { debian()      }
-    else                             { generic()     }
+    if d.contains("endeavour") {
+        endeavour()
+    } else if d.contains("arch") {
+        arch()
+    } else if d.contains("nixos") || d.contains("nix") {
+        nixos()
+    } else if d.contains("fedora") {
+        fedora()
+    } else if d.contains("manjaro") {
+        manjaro()
+    } else if d.contains("opensuse") || d.contains("suse") {
+        opensuse()
+    } else if d.contains("pop") {
+        pop()
+    } else if d.contains("mint") {
+        mint()
+    } else if d.contains("ubuntu") {
+        ubuntu()
+    } else if d.contains("debian") {
+        debian()
+    } else {
+        generic()
+    }
 }
 
 /// Auto-detect distro from /etc/os-release and return its logo.
@@ -32,7 +42,7 @@ pub fn auto_logo() -> AsciiLogo {
 /// Load a custom ASCII art logo from a file path (supports ~ expansion).
 pub fn load_from_file(path: &str) -> Option<AsciiLogo> {
     let expanded = crate::config::Config::expand_path(path);
-    let content  = std::fs::read_to_string(expanded).ok()?;
+    let content = std::fs::read_to_string(expanded).ok()?;
     let lines: Vec<String> = content.lines().map(String::from).collect();
     let width = lines.iter().map(|l| visible_len(l)).max().unwrap_or(0);
     Some(AsciiLogo { lines, width })
@@ -43,15 +53,24 @@ fn visible_len(s: &str) -> usize {
     let mut len = 0;
     let mut in_escape = false;
     for c in s.chars() {
-        if c == '\x1b' { in_escape = true; continue; }
-        if in_escape   { if c == 'm' { in_escape = false; } continue; }
+        if c == '\x1b' {
+            in_escape = true;
+            continue;
+        }
+        if in_escape {
+            if c == 'm' {
+                in_escape = false;
+            }
+            continue;
+        }
         len += 1;
     }
     len
 }
 
 fn read_os_id() -> String {
-    std::fs::read_to_string("/etc/os-release").unwrap_or_default()
+    std::fs::read_to_string("/etc/os-release")
+        .unwrap_or_default()
         .lines()
         .find(|l| l.starts_with("ID="))
         .and_then(|l| l.splitn(2, '=').nth(1))
@@ -80,7 +99,9 @@ fn arch() -> AsciiLogo {
 }
 
 fn endeavour() -> AsciiLogo {
-    let p = "\x1b[35m"; let r2 = "\x1b[31m"; let w = "\x1b[97m";
+    let p = "\x1b[35m";
+    let r2 = "\x1b[31m";
+    let w = "\x1b[97m";
     AsciiLogo {
         lines: vec![
             format!("{p}        /\\{R}"),
@@ -132,7 +153,8 @@ fn debian() -> AsciiLogo {
 }
 
 fn nixos() -> AsciiLogo {
-    let b = "\x1b[94m"; let c = "\x1b[96m";
+    let b = "\x1b[94m";
+    let c = "\x1b[96m";
     AsciiLogo {
         lines: vec![
             format!("{b}  \\\\  / /  {R}"),
@@ -148,7 +170,8 @@ fn nixos() -> AsciiLogo {
 }
 
 fn fedora() -> AsciiLogo {
-    let b = "\x1b[34m"; let w = "\x1b[97m";
+    let b = "\x1b[34m";
+    let w = "\x1b[97m";
     AsciiLogo {
         lines: vec![
             format!("{b}    ___  {R}"),
@@ -196,7 +219,8 @@ fn opensuse() -> AsciiLogo {
 }
 
 fn pop() -> AsciiLogo {
-    let c = "\x1b[96m"; let y = "\x1b[93m";
+    let c = "\x1b[96m";
+    let y = "\x1b[93m";
     AsciiLogo {
         lines: vec![
             format!("{c}  ______  {R}"),
@@ -212,7 +236,8 @@ fn pop() -> AsciiLogo {
 }
 
 fn mint() -> AsciiLogo {
-    let g = "\x1b[92m"; let d = "\x1b[32m";
+    let g = "\x1b[92m";
+    let d = "\x1b[32m";
     AsciiLogo {
         lines: vec![
             format!("{d} _________ {R}"),

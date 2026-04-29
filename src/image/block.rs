@@ -1,18 +1,24 @@
+use super::{resize_to_cells, ImageBackend};
 use image::{DynamicImage, Rgba};
-use super::{ImageBackend, resize_to_cells};
 
 /// Unicode half-block fallback — works in any terminal.
 /// Uses upper-half block "▀" with fg=top-pixel, bg=bottom-pixel.
 pub struct BlockBackend;
 
 impl BlockBackend {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 impl ImageBackend for BlockBackend {
-    fn name(&self) -> &'static str { "block" }
+    fn name(&self) -> &'static str {
+        "block"
+    }
 
-    fn is_supported(&self) -> bool { true } // always available
+    fn is_supported(&self) -> bool {
+        true
+    } // always available
 
     fn render(
         &self,
@@ -38,8 +44,14 @@ impl ImageBackend for BlockBackend {
             while px < w {
                 let px2 = (px + cell_w).min(w);
 
-                let top    = avg_color(&rgba, px, py,  px2, py.saturating_add(cell_h / 2).min(h));
-                let bottom = avg_color(&rgba, px, py2.saturating_sub(cell_h / 2).min(h - 1), px2, py2);
+                let top = avg_color(&rgba, px, py, px2, py.saturating_add(cell_h / 2).min(h));
+                let bottom = avg_color(
+                    &rgba,
+                    px,
+                    py2.saturating_sub(cell_h / 2).min(h - 1),
+                    px2,
+                    py2,
+                );
 
                 out.push_str(&truecolor_fg(top));
                 out.push_str(&truecolor_bg(bottom));
@@ -56,11 +68,7 @@ impl ImageBackend for BlockBackend {
     }
 }
 
-fn avg_color(
-    img: &image::RgbaImage,
-    x0: u32, y0: u32,
-    x1: u32, y1: u32,
-) -> Rgba<u8> {
+fn avg_color(img: &image::RgbaImage, x0: u32, y0: u32, x1: u32, y1: u32) -> Rgba<u8> {
     let (x1, y1) = (x1.min(img.width()), y1.min(img.height()));
     if x0 >= x1 || y0 >= y1 {
         return Rgba([0, 0, 0, 255]);
@@ -76,8 +84,10 @@ fn avg_color(
             n += 1;
         }
     }
-    if n == 0 { return Rgba([0, 0, 0, 255]); }
-    Rgba([(r/n) as u8, (g/n) as u8, (b/n) as u8, (a/n) as u8])
+    if n == 0 {
+        return Rgba([0, 0, 0, 255]);
+    }
+    Rgba([(r / n) as u8, (g / n) as u8, (b / n) as u8, (a / n) as u8])
 }
 
 fn truecolor_fg(c: Rgba<u8>) -> String {
