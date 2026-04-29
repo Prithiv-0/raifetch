@@ -12,9 +12,9 @@
 **A fast, multithreaded system information fetch tool written in Rust.**  
 Inspired by [fastfetch](https://github.com/fastfetch-cli/fastfetch) — with a native image backend and full TOML configuration.
 
-![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=flat-square&logo=rust)
-![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
-![Platform](https://img.shields.io/badge/platform-Linux%20|%20macOS-lightgrey?style=flat-square)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-GPLv3-blue?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
+[![Platform](https://img.shields.io/badge/platform-Linux%20|%20macOS-lightgrey?style=flat-square)](https://en.wikipedia.org/wiki/Unix-like)
 
 </div>
 
