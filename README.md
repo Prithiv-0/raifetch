@@ -142,6 +142,3 @@ raifetch --module cpu       # Prints only the CPU information
 
 The backend is auto-detected. You can force a specific backend using `--backend kitty` or `--backend iterm2`.
 
-## License
-
-MIT
