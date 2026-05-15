@@ -92,7 +92,15 @@ Make sure `~/.local/bin` is in your `PATH`. For example, in Zsh:
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 ```
-
+### AUR
+If you are running Arch or an Arch Based distro (endeavourOS,cachyOS) you can install directly from AUR
+```bash
+yay -S raifetch
+```
+run using
+```bash
+raifetch
+```
 ## Configuration
 
 `raifetch` reads its configuration from `~/.config/raifetch/config.toml`.  
