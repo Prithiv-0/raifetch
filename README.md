@@ -9,7 +9,7 @@
   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
 ```
 
-**A fast, multithreaded system information fetch tool written in Rust.**  
+**A high-performance system information tool written in Rust, engineered for speed and functionality without compromise.**  
 Inspired by [fastfetch](https://github.com/fastfetch-cli/fastfetch) — with a native image backend and full TOML configuration.
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org/)
@@ -34,7 +34,9 @@ Inspired by [fastfetch](https://github.com/fastfetch-cli/fastfetch) — with a n
 - **Wayland-native** resolution detection (Hyprland, sway, kscreen).
 - **Fully configurable** via TOML with no required setup.
 - **Custom shell modules** — run completely asynchronously in the background so they never block rendering.
+- **Fast** - its fast
 
+  <img width="796" height="446" alt="image" src="https://github.com/user-attachments/assets/b81aace6-0885-4e9d-a6dd-764b41e573af" />
 ## Modules
 
 | Module | Information Displayed |
