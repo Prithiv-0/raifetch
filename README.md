@@ -110,6 +110,15 @@ To generate the default configuration file:
 raifetch --generate-config > ~/.config/raifetch/config.toml
 ```
 
+You can also set the image backend in config:
+
+```toml
+[image]
+backend = "auto" # auto | kitty | iterm2 | sixel | block
+```
+
+`--backend` on the CLI overrides the config value.
+
 
 ## CLI Flags
 
@@ -119,7 +128,7 @@ raifetch [OPTIONS]
 Options:
   -i, --image <PATH>          Override image path
       --no-image              Disable image/logo
-      --backend <BACKEND>     Force backend: kitty | sixel | block
+      --backend <BACKEND>     Force backend: kitty | iterm2 | sixel | block
       --color <WHEN>          Color output: auto | always | never
       --config <PATH>         Use an alternate config file
       --config-path           Print config file location
@@ -151,4 +160,6 @@ raifetch --module cpu       # Prints only the CPU information
 | `block` | Any (fallback) | Unicode half-blocks + TrueColor |
 
 The backend is auto-detected. You can force a specific backend using `--backend kitty` or `--backend iterm2`.
+You can also set the backend in config; `--backend` takes priority when provided.
+On xterm, set `XTERM_SIXEL=1` if you want auto-detection to choose the sixel backend.
 

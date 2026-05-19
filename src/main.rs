@@ -10,7 +10,7 @@ use std::io::{self, Write};
 use std::time::{Duration, Instant};
 
 use crate::config::Config;
-use crate::image::{auto_detect, BlockBackend, ImageBackend, KittyBackend, SixelBackend};
+use crate::image::{auto_detect, BlockBackend, ImageBackend, ITerm2Backend, KittyBackend, SixelBackend};
 use crate::info::{build_modules, os, wm::detect_de};
 use crate::render::render_side_by_side;
 use crate::theme::{color_blocks, distro_auto_color, Theme};
@@ -253,8 +253,12 @@ fn main() -> anyhow::Result<()> {
             let path_opt = resolve_image_path(cli.image.as_deref(), cfg.image.path.as_deref());
             match path_opt {
                 Some(img_path) => {
+                    let backend_override = cli
+                        .backend
+                        .as_deref()
+                        .or_else(|| config_backend_override(&cfg.image.backend));
                     render_image_cached(
-                        &mut out, &img_path, &cfg, &pairs, &theme, key_width, cli.backend.as_deref(),
+                        &mut out, &img_path, &cfg, &pairs, &theme, key_width, backend_override,
                     )?;
                 }
                 None => {
@@ -419,11 +423,12 @@ fn print_kitty_sideby(
     let col = img_cols as usize + gap + 1;
     for (i, line) in info.iter().enumerate() {
         write!(out, "\x1b[{col}G{line}")?;
-        if i + 1 < img_rows as usize {
+        if i + 1 < info.len() {
             write!(out, "\x1b[1B")?;
         }
     }
-    let remaining = (img_rows as usize).saturating_sub(info.len());
+    let total_lines = (img_rows as usize).max(info.len());
+    let remaining = total_lines.saturating_sub(info.len());
     if remaining > 0 {
         write!(out, "\x1b[{remaining}B")?;
     }
@@ -468,7 +473,7 @@ fn render_image_cached(
     };
 
     match render_result {
-        Ok((s, cols, rows)) if backend.name() == "kitty" => print_kitty_sideby(
+        Ok((s, cols, rows)) if backend_is_inline(backend.name()) => print_kitty_sideby(
             out,
             &s,
             cols,
@@ -492,6 +497,10 @@ fn render_image_cached(
             print_ascii_sideby(out, &logo, pairs, theme, cfg, cfg.general.gap, key_width)
         }
     }
+}
+
+fn backend_is_inline(name: &str) -> bool {
+    matches!(name, "kitty" | "iTerm2" | "sixel")
 }
 
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
@@ -519,11 +528,20 @@ fn resolve_image_path(
     Some(Config::expand_path(p))
 }
 
+fn config_backend_override(backend: &str) -> Option<&str> {
+    if backend.is_empty() || backend.eq_ignore_ascii_case("auto") {
+        None
+    } else {
+        Some(backend)
+    }
+}
+
 fn select_backend(name: Option<&str>) -> Box<dyn ImageBackend> {
-    match name {
-        Some("kitty") => Box::new(KittyBackend::new()),
-        Some("sixel") => Box::new(SixelBackend::new()),
-        Some("block") => Box::new(BlockBackend::new()),
+    match name.map(|n| n.to_ascii_lowercase()) {
+        Some(n) if n == "kitty" => Box::new(KittyBackend::new()),
+        Some(n) if n == "iterm2" => Box::new(ITerm2Backend::new()),
+        Some(n) if n == "sixel" => Box::new(SixelBackend::new()),
+        Some(n) if n == "block" => Box::new(BlockBackend::new()),
         _ => auto_detect(),
     }
 }

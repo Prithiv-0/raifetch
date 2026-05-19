@@ -48,8 +48,9 @@ impl Default for GeneralConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ImageConfig {
-    #[serde(default = "default_true")]
-    pub enabled: bool,
+    /// auto | kitty | iterm2 | sixel | block
+    #[serde(default = "default_image_backend")]
+    pub backend: String,
     pub path: Option<String>,
     #[serde(default = "default_image_width")]
     pub width: u16,
@@ -67,6 +68,9 @@ pub struct ImageConfig {
 fn default_image_width() -> u16 {
     32
 }
+fn default_image_backend() -> String {
+    "auto".to_string()
+}
 fn default_logo_type() -> String {
     "auto".to_string()
 }
@@ -76,7 +80,7 @@ fn default_auto() -> String {
 impl Default for ImageConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            backend: default_image_backend(),
             path: None,
             width: default_image_width(),
             height: 0,

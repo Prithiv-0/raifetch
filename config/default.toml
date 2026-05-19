@@ -10,7 +10,8 @@ auto_hide_wm = true   # Hide WM line when it equals DE (e.g. Hyprland)
 command_timeout_ms = 1  # Per-command timeout for slow external tools
 
 [image]
-enabled      = true
+# backend: auto | kitty | iterm2 | sixel | block
+backend     = "auto"
 # logo_type: auto | image | ascii | none
 #   auto  = use image if path set, else ascii logo
 #   image = always use pixel image (kitty/sixel/block backend)

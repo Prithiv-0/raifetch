@@ -15,13 +15,11 @@ impl ImageBackend for SixelBackend {
     }
 
     fn is_supported(&self) -> bool {
-        // foot sets TERM=foot; xterm with sixel reports VT340
-        let term = std::env::var("TERM").unwrap_or_default();
-        term.contains("foot")
-            || term.contains("xterm")
-            || std::env::var("TERM_PROGRAM")
-                .map(|t| t == "iTerm.app")
-                .unwrap_or(false)
+        // Keep detection conservative to avoid false positives on xterm-like terms.
+        let term = std::env::var("TERM").unwrap_or_default().to_ascii_lowercase();
+        let has_term = term.contains("foot") || term.contains("mlterm") || term.contains("sixel");
+        let has_xterm_sixel = term.contains("xterm") && std::env::var("XTERM_SIXEL").is_ok();
+        has_term || has_xterm_sixel
     }
 
     fn render(

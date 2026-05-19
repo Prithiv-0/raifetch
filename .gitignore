@@ -20,3 +20,16 @@
 
 # raifetch runtime cache (lives in /tmp, but just in case)
 raifetch_pkg_*
+
+# AUR build artifacts and nested clone
+aur/
+aur/pkg/
+aur/src/
+aur/*.pkg.tar.zst
+aur/*.src.tar.gz
+aur/*.log
+aur/*.tar.gz
+aur/raifetch/
+
+# Local release archives
+raifetch-*.tar.gz
